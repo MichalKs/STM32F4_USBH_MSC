@@ -20,7 +20,15 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+
 #include "usb_bsp.h"
+#include "usb_hcd_int.h"
+#include "usbh_core.h"
+#include "usb_conf.h"
+#include <stm32f4xx.h>
+
+extern USB_OTG_CORE_HANDLE          USB_OTG_Core;
+extern USBH_HOST                    USB_Host;
 
 /** @addtogroup STM32F4-Discovery_Audio_Player_Recorder
   * @{
@@ -77,14 +85,13 @@ void USB_OTG_BSP_Init(USB_OTG_CORE_HANDLE *pdev)
  /* Note: On STM32F4-Discovery board only USB OTG FS core is supported. */
 
   GPIO_InitTypeDef GPIO_InitStructure;
- #ifdef USE_USB_OTG_FS 
 
   RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_GPIOA , ENABLE);  
   
   /* Configure SOF VBUS ID DM DP Pins */
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9  | 
       GPIO_Pin_11 | 
-        GPIO_Pin_12;
+      GPIO_Pin_12;
   
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
@@ -97,8 +104,6 @@ void USB_OTG_BSP_Init(USB_OTG_CORE_HANDLE *pdev)
   GPIO_PinAFConfig(GPIOA,GPIO_PinSource12,GPIO_AF_OTG1_FS) ;
   
   /* this for ID line debug */
-  
-  
   GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_10;
   GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
   GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP ;  
@@ -109,120 +114,7 @@ void USB_OTG_BSP_Init(USB_OTG_CORE_HANDLE *pdev)
 
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
   RCC_AHB2PeriphClockCmd(RCC_AHB2Periph_OTG_FS, ENABLE) ; 
- #else // USE_USB_OTG_HS 
 
-  #ifdef USE_ULPI_PHY // ULPI
-  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_GPIOA | RCC_AHB1Periph_GPIOB | 
-                         RCC_AHB1Periph_GPIOC | RCC_AHB1Periph_GPIOH | 
-                           RCC_AHB1Periph_GPIOI, ENABLE);    
-  
-  
-  GPIO_PinAFConfig(GPIOA,GPIO_PinSource3, GPIO_AF_OTG2_HS) ; // D0
-  GPIO_PinAFConfig(GPIOA,GPIO_PinSource5, GPIO_AF_OTG2_HS) ; // CLK
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource0, GPIO_AF_OTG2_HS) ; // D1
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource1, GPIO_AF_OTG2_HS) ; // D2
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource5, GPIO_AF_OTG2_HS) ; // D7
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource10,GPIO_AF_OTG2_HS) ; // D3
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource11,GPIO_AF_OTG2_HS) ; // D4
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource12,GPIO_AF_OTG2_HS) ; // D5
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource13,GPIO_AF_OTG2_HS) ; // D6
-  GPIO_PinAFConfig(GPIOH,GPIO_PinSource4, GPIO_AF_OTG2_HS) ; // NXT
-  GPIO_PinAFConfig(GPIOI,GPIO_PinSource11,GPIO_AF_OTG2_HS) ; // DIR
-  GPIO_PinAFConfig(GPIOC,GPIO_PinSource0, GPIO_AF_OTG2_HS) ; // STP
-  
-  // CLK
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 ; 
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);  
-  
-  // D0
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3  ; 
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL ;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);  
-  
-  
-  
-  // D1 D2 D3 D4 D5 D6 D7
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1  |
-    GPIO_Pin_5 | GPIO_Pin_10 | 
-      GPIO_Pin_11| GPIO_Pin_12 | 
-        GPIO_Pin_13 ;
-  
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL ;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);  
-  
-  
-  // STP
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0  ;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOC, &GPIO_InitStructure);  
-  
-  //NXT  
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOH, &GPIO_InitStructure);  
-  
-  
-  //DIR
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11 ; 
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOI, &GPIO_InitStructure);  
-  
-  
-  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_OTG_HS | 
-                         RCC_AHB1Periph_OTG_HS_ULPI, ENABLE) ;    
-   
-  #else
-  
-   #ifdef USE_I2C_PHY    
-  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_GPIOB , ENABLE);  
-  /* Configure RESET INTN SCL SDA (Phy/I2C) Pins */
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | 
-    GPIO_Pin_1 | 
-      GPIO_Pin_10 | 
-        GPIO_Pin_11;
-  
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);  
-  
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource0,GPIO_AF_OTG2_FS) ; 
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource1,GPIO_AF_OTG2_FS) ; 
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource10,GPIO_AF_OTG2_FS) ; 
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource11,GPIO_AF_OTG2_FS);
-  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_OTG_HS, ENABLE) ;  
-  
-   #else
-
-  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB , ENABLE);
-  
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12  | 
-    GPIO_Pin_13 |
-      GPIO_Pin_14 | 
-        GPIO_Pin_15;
-  
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);  
-  
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource12, GPIO_AF_OTG2_FS) ; 
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource13,GPIO_AF_OTG2_FS) ; 
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource14,GPIO_AF_OTG2_FS) ; 
-  GPIO_PinAFConfig(GPIOB,GPIO_PinSource15,GPIO_AF_OTG2_FS) ;
-  RCC_AHB1PeriphClockCmd( RCC_AHB1Periph_OTG_HS, ENABLE) ;  
-   #endif    
-  #endif
- #endif //USB_OTG_HS
 
   /* Intialize Timer for delay function */
   USB_OTG_BSP_TimeInit(); 
@@ -471,6 +363,50 @@ static void BSP_SetTime(uint8_t unit)
 }
 
 #endif
+
+
+/* Private function prototypes -----------------------------------------------*/
+extern void USB_OTG_BSP_TimerIRQ (void);
+
+/**
+  * @brief  EXTI1_IRQHandler
+  *         This function handles External line 1 interrupt request.
+  * @param  None
+  * @retval None
+  */
+void EXTI1_IRQHandler(void)
+{
+  if(EXTI_GetITStatus(EXTI_Line1) != RESET)
+  {
+      USB_Host.usr_cb->OverCurrentDetected();
+      EXTI_ClearITPendingBit(EXTI_Line1);
+  }
+}
+/**
+  * @brief  TIM2_IRQHandler
+  *         This function handles Timer2 Handler.
+  * @param  None
+  * @retval None
+  */
+void TIM2_IRQHandler(void)
+{
+  USB_OTG_BSP_TimerIRQ();
+}
+
+
+/**
+  * @brief  OTG_FS_IRQHandler
+  *          This function handles USB-On-The-Go FS global interrupt request.
+  *          requests.
+  * @param  None
+  * @retval None
+  */
+void OTG_FS_IRQHandler(void)
+{
+  USBH_OTG_ISR_Handler(&USB_OTG_Core);
+}
+
+
 
 /**
 * @}
