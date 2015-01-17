@@ -1,31 +1,4 @@
-/**
-  ******************************************************************************
-  * @file    usbh_usr.c
-  * @author  MCD Application Team
-  * @version V2.1.0
-  * @date    19-March-2012
-  * @brief   This file includes the usb host library user callbacks
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; COPYRIGHT 2012 STMicroelectronics</center></h2>
-  *
-  * Licensed under MCD-ST Liberty SW License Agreement V2, (the "License");
-  * You may not use this file except in compliance with the License.
-  * You may obtain a copy of the License at:
-  *
-  *        http://www.st.com/software_license_agreement_liberty_v2
-  *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
-  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  * See the License for the specific language governing permissions and
-  * limitations under the License.
-  *
-  ******************************************************************************
-  */
 
-/* Includes ------------------------------------------------------------------*/
 #include <string.h>
 #include <stdio.h>
 #include "usbh_usr.h"
@@ -34,21 +7,38 @@
 #include "usbh_msc_scsi.h"
 #include "usbh_msc_bot.h"
 
-
 extern USB_OTG_CORE_HANDLE          USB_OTG_Core;
 
-uint8_t USBH_USR_ApplicationState = USH_USR_FS_INIT;
-uint8_t filenameString[15]  = {0};
+uint8_t USB_ApplicationState = USB_USR_APP_INIT;
+uint8_t USB_Filename[15]  = "STM32F4.TXT";
 
-FATFS fatfs;
-FIL file;
-uint8_t line_idx = 0;
+static FATFS fatfs;
+static FIL file;
 
-/*  Points to the DEVICE_PROP structure of current device */
-/*  The purpose of this register is to speed up the execution */
+void USBH_USR_Init(void);
+void USBH_USR_DeInit(void);
+void USBH_USR_DeviceAttached(void);
+void USBH_USR_ResetDevice(void);
+void USBH_USR_DeviceDisconnected (void);
+void USBH_USR_OverCurrentDetected (void);
+void USBH_USR_DeviceSpeedDetected(uint8_t DeviceSpeed);
+void USBH_USR_Device_DescAvailable(void *);
+void USBH_USR_DeviceAddressAssigned(void);
+void USBH_USR_Configuration_DescAvailable(USBH_CfgDesc_TypeDef * cfgDesc,
+                                          USBH_InterfaceDesc_TypeDef *itfDesc,
+                                          USBH_EpDesc_TypeDef *epDesc);
+void USBH_USR_Manufacturer_String(void *);
+void USBH_USR_Product_String(void *);
+void USBH_USR_SerialNum_String(void *);
+void USBH_USR_EnumerationDone(void);
+USBH_USR_Status USBH_USR_UserInput(void);
+void USBH_USR_DeInit(void);
+void USBH_USR_DeviceNotSupported(void);
+void USBH_USR_UnrecoveredError(void);
+int USBH_USR_MSC_Application(void);
 
-USBH_Usr_cb_TypeDef USR_cb =
-{
+
+USBH_Usr_cb_TypeDef USR_cb = {
   USBH_USR_Init,
   USBH_USR_DeInit,
   USBH_USR_DeviceAttached,
@@ -80,6 +70,154 @@ USBH_Usr_cb_TypeDef USR_cb =
 #define print(str, args...) (void)0
 #define println(str, args...) (void)0
 #endif
+
+
+static uint8_t Explore_Disk (char* path , uint8_t recu_level);
+/**
+* @brief  USBH_USR_MSC_Application
+*         Demo application for mass storage
+* @param  None
+* @retval Staus
+*/
+int USBH_USR_MSC_Application(void) {
+
+  FRESULT res;
+  char writeTextBuff[] = "Hello from STM32F4 USB HOST!!!";
+  uint32_t bytesWritten;
+  uint32_t bytesToWrite;
+
+  switch(USB_ApplicationState) {
+  case USB_USR_APP_INIT:
+
+    /* Initialises the File System*/
+    if ( f_mount( 0, &fatfs ) != FR_OK )  {
+      /* fs initialisation fails*/
+      println("Cannot initialize File System.");
+      return(-1);
+    }
+    println("File System initialized.");
+    println("Disk capacity : %d KB",
+        (unsigned int)(USBH_MSC_Param.MSCapacity / 1024 *
+      USBH_MSC_Param.MSPageLength));
+
+    if(USBH_MSC_Param.MSWriteProtect == DISK_WRITE_PROTECTED) {
+      println("Write protected");
+    }
+    USB_ApplicationState = USB_USR_APP_IDLE;
+    break;
+
+  case USB_USR_APP_READROOT:
+
+    println("Reading root dir");
+    Explore_Disk("0:/", 1);
+    USB_ApplicationState = USB_USR_APP_IDLE;
+    break;
+
+  case USB_USR_APP_WRITEFILE:
+
+    USB_OTG_BSP_mDelay(100);
+
+    /* Writes a text file, STM32.TXT in the disk*/
+    println("Writing File to disk flash ...");
+    if(USBH_MSC_Param.MSWriteProtect == DISK_WRITE_PROTECTED) {
+
+      println ( "Disk flash is write protected");
+      break;
+    }
+
+    /* Register work area for logical drives */
+    f_mount(0, &fatfs);
+
+    if(f_open(&file, "0:HELLO.TXT", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
+      /* Write buffer to file */
+      bytesToWrite = strlen(writeTextBuff);
+      res= f_write (&file, (void*)writeTextBuff,
+          bytesToWrite, &(bytesWritten));
+
+      if((bytesWritten == 0) || (res != FR_OK)) {
+        /*EOF or Error*/
+        println("STM32.TXT CANNOT be writen.");
+      }
+      else if (bytesWritten != bytesToWrite) {
+        println("'STM32.TXT' wrote incomplete");
+      } else {
+        println("'STM32.TXT' file created");
+      }
+
+      /*close file*/
+      f_close(&file);
+
+    } else {
+      println ("File write error");
+    }
+    USB_ApplicationState = USB_USR_APP_IDLE;
+    break;
+
+  case USB_USR_APP_IDLE:
+
+    break;
+  default: break;
+  }
+  return(0);
+}
+
+/**
+* @brief  Explore_Disk
+*         Displays disk content
+* @param  path: pointer to root path
+* @retval None
+*/
+static uint8_t Explore_Disk (char* path , uint8_t recu_level) {
+
+  FRESULT res;
+  FILINFO fno;
+  DIR dir;
+  char *fn;
+  char tmp[30];
+
+  res = f_opendir(&dir, path);
+
+  if (res == FR_OK) {
+
+    println("\nPrinting root dir *************");
+    while(HCD_IsDeviceConnected(&USB_OTG_Core)) {
+      res = f_readdir(&dir, &fno);
+      if (res != FR_OK || fno.fname[0] == 0)  {
+        break;
+      }
+
+      if (fno.fname[0] == '.') {
+        continue;
+      }
+
+      fn = fno.fname;
+      strcpy(tmp, fn);
+
+      if (recu_level == 1) {
+
+      } else if (recu_level == 2) {
+
+      }
+
+      if((fno.fattrib & AM_MASK) == AM_DIR) {
+         strcat(tmp, " D");
+      }
+      println("%s", tmp);
+
+//      if(((fno.fattrib & AM_MASK) == AM_DIR)&&(recu_level == 1))
+//      {
+//        Explore_Disk(fn, 2);
+//      }
+    }
+    println("Finished printing root dir *************\n");
+  } else {
+    println("Read root error");
+  }
+
+
+
+  return res;
+}
 
 /**
 * @brief  USBH_USR_Init 
@@ -251,8 +389,7 @@ void USBH_USR_DeviceNotSupported(void) {
 * @param  None
 * @retval USBH_USR_Status : User response for key button
 */
-USBH_USR_Status USBH_USR_UserInput(void)
-{
+USBH_USR_Status USBH_USR_UserInput(void) {
   USBH_USR_Status usbh_usr_status;
   
   usbh_usr_status = USBH_USR_NO_RESP;  
@@ -277,164 +414,6 @@ void USBH_USR_OverCurrentDetected (void) {
   println("Overcurrent detected.");
 }
 
-static uint8_t Explore_Disk (char* path , uint8_t recu_level);
-/**
-* @brief  USBH_USR_MSC_Application 
-*         Demo application for mass storage
-* @param  None
-* @retval Staus
-*/
-int USBH_USR_MSC_Application(void) {
-
-  FRESULT res;
-  char writeTextBuff[] = "Hello from STM32F4 USB HOST!!!";
-  uint32_t bytesWritten;
-  uint32_t bytesToWrite;
-  
-  switch(USBH_USR_ApplicationState) {
-  case USH_USR_FS_INIT: 
-    
-    /* Initialises the File System*/
-    if ( f_mount( 0, &fatfs ) != FR_OK )  {
-      /* fs initialisation fails*/
-      println("Cannot initialize File System.");
-      return(-1);
-    }
-    println("File System initialized.");
-    println("Disk capacity : %d KB",
-        (unsigned int)(USBH_MSC_Param.MSCapacity / 1024 *
-      USBH_MSC_Param.MSPageLength));
-    
-    if(USBH_MSC_Param.MSWriteProtect == DISK_WRITE_PROTECTED) {
-      println("Write protected");
-    }
-    
-    USBH_USR_ApplicationState = USH_USR_FS_READLIST;
-    break;
-    
-  case USH_USR_FS_READLIST:
-    
-    println("Reading root dir");
-    Explore_Disk("0:/", 1);
-    line_idx = 0;   
-    USBH_USR_ApplicationState = USH_USR_FS_WRITEFILE;
-    
-    break;
-    
-  case USH_USR_FS_WRITEFILE:
-    
-    USB_OTG_BSP_mDelay(100);
-    
-    /* Writes a text file, STM32.TXT in the disk*/
-    println("Writing File to disk flash ...");
-    if(USBH_MSC_Param.MSWriteProtect == DISK_WRITE_PROTECTED) {
-      
-      println ( "Disk flash is write protected");
-      USBH_USR_ApplicationState = USH_USR_FS_DRAW;
-      break;
-    }
-    
-    /* Register work area for logical drives */
-    f_mount(0, &fatfs);
-    
-    if(f_open(&file, "0:HELLO.TXT", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
-      /* Write buffer to file */
-      bytesToWrite = strlen(writeTextBuff);
-      res= f_write (&file, (void*)writeTextBuff,
-          bytesToWrite, &(bytesWritten));
-      
-      if((bytesWritten == 0) || (res != FR_OK)) {
-        /*EOF or Error*/
-        println("STM32.TXT CANNOT be writen.");
-      }
-      else if (bytesWritten != bytesToWrite) {
-        println("'STM32.TXT' wrote incomplete");
-      } else {
-        println("'STM32.TXT' file created");
-      }
-      
-      /*close file and filesystem*/
-      f_close(&file);
-      f_mount(0, NULL); 
-    } else {
-      println ("File write error");
-    }
-
-    USBH_USR_ApplicationState = USH_USR_FS_DRAW; 
-  
-    break;
-    
-  case USH_USR_FS_DRAW:
-
-//    while(HCD_IsDeviceConnected(&USB_OTG_Core))
-//    {
-//      if ( f_mount( 0, &fatfs ) != FR_OK )
-//      {
-//        /* fat_fs initialisation fails*/
-//        return(-1);
-//      }
-//      return Image_Browser("0:/");
-//    }
-    break;
-  default: break;
-  }
-  return(0);
-}
-
-/**
-* @brief  Explore_Disk 
-*         Displays disk content
-* @param  path: pointer to root path
-* @retval None
-*/
-static uint8_t Explore_Disk (char* path , uint8_t recu_level) {
-
-  FRESULT res;
-  FILINFO fno;
-  DIR dir;
-  char *fn;
-  char tmp[30];
-  
-  res = f_opendir(&dir, path);
-
-  if (res == FR_OK) {
-
-    println("\nPrinting root dir *************");
-    while(HCD_IsDeviceConnected(&USB_OTG_Core)) {
-      res = f_readdir(&dir, &fno);
-      if (res != FR_OK || fno.fname[0] == 0)  {
-        break;
-      }
-
-      if (fno.fname[0] == '.') {
-        continue;
-      }
-
-      fn = fno.fname;
-      strcpy(tmp, fn); 
-      
-      if (recu_level == 1) {
-
-      } else if (recu_level == 2) {
-
-      }
-
-      if((fno.fattrib & AM_MASK) == AM_DIR) {
-         strcat(tmp, " D");
-      }
-      println("%s", tmp);
-
-//      if(((fno.fattrib & AM_MASK) == AM_DIR)&&(recu_level == 1))
-//      {
-//        Explore_Disk(fn, 2);
-//      }
-    }
-    println("Finished printing root dir *************\n");
-  }
-
-  return res;
-}
-
 /**
 * @brief  USBH_USR_DeInit
 *         Deint User state and associated variables
@@ -443,25 +422,6 @@ static uint8_t Explore_Disk (char* path , uint8_t recu_level) {
 */
 void USBH_USR_DeInit(void) {
   println("Deinit");
-  USBH_USR_ApplicationState = USH_USR_FS_INIT;
+  f_mount(0, NULL);
+  USB_ApplicationState = USB_USR_APP_INIT;
 }
-
-
-/**
-* @}
-*/ 
-
-/**
-* @}
-*/ 
-
-/**
-* @}
-*/
-
-/**
-* @}
-*/
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-

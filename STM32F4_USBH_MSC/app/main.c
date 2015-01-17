@@ -94,6 +94,17 @@ int main(void) {
     if (!COMM_GetFrame(buf, &len)) {
       println("Got frame of length %d: %s", (int)len, (char*)buf);
 
+//      char* tok = strtok((char*)buf, " ");
+//      if(!strcmp(tok, ":LED")) {
+//        println("LED command received >%s<", tok);
+//      }
+//
+//      tok = strtok(NULL, " ");
+//      if(!strcmp(tok, "0")) {
+//        println("Turn LED0 on/off >%s<", tok);
+//      }
+//      println(">%s<", buf);
+
       // control LED0 from terminal
       if (!strcmp((char*)buf, ":LED 0 ON")) {
         LED_ChangeState(LED0, LED_ON);
@@ -107,6 +118,17 @@ int main(void) {
       if (!strcmp((char*)buf, ":LED 1 OFF")) {
         LED_ChangeState(LED1, LED_OFF);
       }
+      if (!strcmp((char*)buf, ":USB ROOT")) {
+        USB_ApplicationState = USB_USR_APP_READROOT;
+      }
+      if (!strcmp((char*)buf, ":USB WRITE")) {
+        USB_ApplicationState = USB_USR_APP_WRITEFILE;
+      }
+      if (!strcmp((char*)buf, ":USB FILE")) {
+
+      }
+
+
     }
 
     TIMER_SoftTimersUpdate(); // run timers
