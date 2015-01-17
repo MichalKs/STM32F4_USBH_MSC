@@ -125,8 +125,8 @@ int main(void) {
       if (!strcmp((char*)buf, ":USB WRITE")) {
         USB_ApplicationState = USB_USR_APP_WRITEFILE;
       }
-      if (!strcmp((char*)buf, ":USB FILE")) {
-
+      if (!strcmp((char*)buf, ":USB READ")) {
+        USB_ApplicationState = USB_USR_APP_READFILE;
       }
 
 

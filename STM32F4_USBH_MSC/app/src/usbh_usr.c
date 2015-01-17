@@ -86,6 +86,8 @@ int USBH_USR_MSC_Application(void) {
   uint32_t bytesWritten;
   uint32_t bytesToWrite;
 
+  char readBuf[256];
+
   switch(USB_ApplicationState) {
   case USB_USR_APP_INIT:
 
@@ -125,9 +127,6 @@ int USBH_USR_MSC_Application(void) {
       break;
     }
 
-    /* Register work area for logical drives */
-    f_mount(0, &fatfs);
-
     if(f_open(&file, "0:HELLO.TXT", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
       /* Write buffer to file */
       bytesToWrite = strlen(writeTextBuff);
@@ -153,6 +152,38 @@ int USBH_USR_MSC_Application(void) {
     USB_ApplicationState = USB_USR_APP_IDLE;
     break;
 
+  case USB_USR_APP_READFILE:
+
+    USB_OTG_BSP_mDelay(100);
+
+    println("Reading File from disk flash ...");
+
+    if(f_open(&file, "0:HELLO.TXT", FA_READ) == FR_OK) {
+      /* Write buffer to file */
+
+      res = f_read (&file, (void*)readBuf,
+          256, &(bytesWritten));
+
+      if((bytesWritten == 0) || (res != FR_OK)) {
+        /*EOF or Error*/
+        println("STM32.TXT CANNOT be read.");
+      }
+      else if (bytesWritten != 256) {
+        println("'STM32.TXT' read incomplete");
+        println("%s", readBuf);
+      } else {
+        println("'STM32.TXT' read");
+        println("%s", readBuf);
+      }
+
+      /*close file*/
+      f_close(&file);
+
+    } else {
+      println ("File read error");
+    }
+    USB_ApplicationState = USB_USR_APP_IDLE;
+    break;
   case USB_USR_APP_IDLE:
 
     break;

@@ -11,6 +11,7 @@ extern  USBH_Usr_cb_TypeDef USR_cb;
 #define USB_USR_APP_READROOT   1
 #define USB_USR_APP_WRITEFILE  2
 #define USB_USR_APP_IDLE       3
+#define USB_USR_APP_READFILE   4
 
 extern  uint8_t USB_ApplicationState;
 extern uint8_t USB_Filename[];
