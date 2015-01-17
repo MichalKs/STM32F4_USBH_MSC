@@ -81,6 +81,7 @@ int main(void) {
   
   while (1) {
 
+
     // Host Task handler
     USBH_Process(&USB_OTG_Core, &USB_Host);
     
