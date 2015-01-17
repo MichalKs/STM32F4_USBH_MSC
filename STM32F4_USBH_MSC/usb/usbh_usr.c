@@ -428,7 +428,8 @@ int USBH_USR_MSC_Application(void)
 {
   FRESULT res;
   uint8_t writeTextBuff[] = "STM32 Connectivity line Host Demo application using FAT_FS   ";
-  uint16_t bytesWritten, bytesToWrite;
+  uint32_t bytesWritten;
+  uint32_t bytesToWrite;
   
   switch(USBH_USR_ApplicationState)
   {
@@ -442,12 +443,12 @@ int USBH_USR_MSC_Application(void)
       return(-1);
     }
     println("> File System initialized.\n");
-    println("> Disk capacity : %d Bytes\n", USBH_MSC_Param.MSCapacity * \
-      USBH_MSC_Param.MSPageLength); 
+    println("> Disk capacity : %d Bytes\n", (unsigned int)(USBH_MSC_Param.MSCapacity / 1024 *
+      USBH_MSC_Param.MSPageLength));
     
     if(USBH_MSC_Param.MSWriteProtect == DISK_WRITE_PROTECTED)
     {
-      println("%s",(void *)MSG_WR_PROTECT);
+      println("%s",MSG_WR_PROTECT);
     }
     
     USBH_USR_ApplicationState = USH_USR_FS_READLIST;
@@ -455,8 +456,8 @@ int USBH_USR_MSC_Application(void)
     
   case USH_USR_FS_READLIST:
     
-    println("%s",(void *)MSG_ROOT_CONT);
-    Explore_Disk("0:/", 1);
+    println("%s",MSG_ROOT_CONT);
+//    Explore_Disk("0:/", 1);
     line_idx = 0;   
     USBH_USR_ApplicationState = USH_USR_FS_WRITEFILE;
     
@@ -493,25 +494,24 @@ int USBH_USR_MSC_Application(void)
     { 
       /* Write buffer to file */
       bytesToWrite = sizeof(writeTextBuff); 
-      res= f_write (&file, writeTextBuff, bytesToWrite, (void *)&bytesWritten);   
+      res= f_write (&file, (void*)writeTextBuff, bytesToWrite-1, &bytesWritten);
       
       if((bytesWritten == 0) || (res != FR_OK)) /*EOF or Error*/
       {
         println("> STM32.TXT CANNOT be writen.\n");
       }
-      else
-      {
+      else if (bytesWritten != bytesToWrite) {
+        println("> 'STM32.TXT' wrote incomplete");
+      } else {
         println("> 'STM32.TXT' file created\n");
       }
       
       /*close file and filesystem*/
       f_close(&file);
       f_mount(0, NULL); 
-    }
-    
-    else
+    } else
     {
-      println ("> STM32.TXT created in the disk\n");
+      println ("> STM32.TXT already in the disk\n");
     }
 
     USBH_USR_ApplicationState = USH_USR_FS_DRAW; 
@@ -532,15 +532,15 @@ int USBH_USR_MSC_Application(void)
 //      Toggle_Leds();
 //    }
   
-    while(HCD_IsDeviceConnected(&USB_OTG_Core))
-    {
-      if ( f_mount( 0, &fatfs ) != FR_OK ) 
-      {
-        /* fat_fs initialisation fails*/
-        return(-1);
-      }
-      return Image_Browser("0:/");
-    }
+//    while(HCD_IsDeviceConnected(&USB_OTG_Core))
+//    {
+//      if ( f_mount( 0, &fatfs ) != FR_OK )
+//      {
+//        /* fat_fs initialisation fails*/
+//        return(-1);
+//      }
+//      return Image_Browser("0:/");
+//    }
     break;
   default: break;
   }

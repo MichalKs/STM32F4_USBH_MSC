@@ -94,6 +94,7 @@ __ALIGN_BEGIN USBH_HOST                USB_Host __ALIGN_END;
 /** @defgroup USBH_USR_MAIN_Private_Functions
 * @{
 */ 
+#define DEBUG
 
 #ifdef DEBUG
 #define print(str, args...) printf(""str"%s",##args,"")
@@ -103,7 +104,8 @@ __ALIGN_BEGIN USBH_HOST                USB_Host __ALIGN_END;
 #define println(str, args...) (void)0
 #endif
 
-
+#include <comm.h>
+#include <led.h>
 /**
 * @brief  Main routine for MSC class application
 * @param  None
@@ -122,7 +124,10 @@ int main(void)
   To reconfigure the default setting of SystemInit() function, refer to
   system_stm32fxxx.c file
   */  
-  
+  LED_Init(LED0); // Add an LED
+  LED_Init(LED1); // Add an LED
+  LED_Init(LED2); // Add an LED
+  LED_Init(LED3); // Add an LED
   /* Init Host Library */
   USBH_Init(&USB_OTG_Core, 
 #ifdef USE_USB_OTG_FS  
@@ -141,35 +146,11 @@ int main(void)
     
     if (i++ == 0x10000)
     {
-//      STM_EVAL_LEDToggle(LED1);
-//      STM_EVAL_LEDToggle(LED2);
-//      STM_EVAL_LEDToggle(LED3);
-//      STM_EVAL_LEDToggle(LED4);
+      LED_Toggle(LED0);
       i = 0;
     }      
   }
 }
-
-
-#ifdef USE_FULL_ASSERT
-/**
-* @brief  assert_failed
-*         Reports the name of the source file and the source line number
-*         where the assert_param error has occurred.
-* @param  File: pointer to the source file name
-* @param  Line: assert_param error line source number
-* @retval None
-*/
-void assert_failed(uint8_t* file, uint32_t line)
-{
-  /* User can add his own implementation to report the file name and line number,
-  ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  
-  /* Infinite loop */
-  while (1)
-  {}
-}
-#endif
 
 
 /**
